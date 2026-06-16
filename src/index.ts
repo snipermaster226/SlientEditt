@@ -12,8 +12,6 @@ const { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingVie
 
 const ActionSheet = findByProps("openLazy", "hideActionSheet");
 const { ActionSheetRow } = findByProps("ActionSheetRow");
-const { openModal, closeModal } = findByProps("openModal", "closeModal");
-const ModalComponents = findByProps("ModalContent", "ModalFooter") ?? {};
 
 const EditIcon =
     getAssetIDByName("ic_edit_24px") ??
@@ -82,11 +80,14 @@ const styles = StyleSheet.create({
 
 function ReplacementModal({ channelId, messageId, modalKey }: { channelId: string; messageId: string; modalKey: string }) {
     const [text, setText] = useState("");
-    const RestAPI = findByProps("get", "post", "del", "patch");
-    const suppressNotifications: boolean = storage.suppressNotifications ?? true;
 
     const handleSend = async () => {
+        // Lazy lookup inside handler to avoid top-level crash
+        const { closeModal } = findByProps("openModal", "closeModal");
         closeModal(modalKey);
+
+        const RestAPI = findByProps("get", "post", "del", "patch");
+        const suppressNotifications: boolean = storage.suppressNotifications ?? true;
         const replacementText = text.trim() || "** **";
         try {
             await RestAPI.post({
@@ -103,6 +104,11 @@ function ReplacementModal({ channelId, messageId, modalKey }: { channelId: strin
         } catch (err) {
             logger.log("[SilentEdit] Error: " + String(err));
         }
+    };
+
+    const handleCancel = () => {
+        const { closeModal } = findByProps("openModal", "closeModal");
+        closeModal(modalKey);
     };
 
     return (
@@ -122,7 +128,7 @@ function ReplacementModal({ channelId, messageId, modalKey }: { channelId: strin
                         onSubmitEditing={handleSend}
                     />
                     <View style={styles.buttonRow}>
-                        <TouchableOpacity style={styles.cancelBtn} onPress={() => closeModal(modalKey)}>
+                        <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
                             <Text style={styles.cancelText}>Cancel</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.sendBtn} onPress={handleSend}>
@@ -136,6 +142,7 @@ function ReplacementModal({ channelId, messageId, modalKey }: { channelId: strin
 }
 
 function showReplacementModal(channelId: string, messageId: string) {
+    const { openModal } = findByProps("openModal", "closeModal");
     const key = `silent-edit-${Date.now()}`;
     openModal(key, () => React.createElement(ReplacementModal, { channelId, messageId, modalKey: key }));
 }
@@ -181,7 +188,6 @@ export default {
                         },
                     });
 
-                    // Find the Edit row and insert our button directly below it
                     let inserted = false;
                     for (let gi = 0; gi < groups.length; gi++) {
                         const groupChildren: any[] = findInReactTree(
@@ -225,4 +231,4 @@ export default {
 
     settings: Settings,
 };
-                            
+            
